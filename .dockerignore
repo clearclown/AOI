@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build outputs
+dist
+build
+*.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AIDA
+.aida

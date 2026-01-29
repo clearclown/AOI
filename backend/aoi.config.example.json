@@ -1,0 +1,85 @@
+{
+  "agent": {
+    "id": "pm-secretary-01",
+    "role": "pm",
+    "owner": "project-manager"
+  },
+  "network": {
+    "listen_addr": "0.0.0.0:8080",
+    "tls_enabled": false
+  },
+  "acl": {
+    "rules": [
+      {
+        "agent_id": "eng-agent-01",
+        "resource": "/api/query",
+        "permission": "read"
+      },
+      {
+        "agent_id": "pm-agent-01",
+        "resource": "/api/query",
+        "permission": "admin"
+      },
+      {
+        "agent_id": "qa-agent-01",
+        "resource": "/api/status",
+        "permission": "read"
+      }
+    ]
+  },
+  "context": {
+    "watch_paths": [
+      ".",
+      "./docs",
+      "./src"
+    ],
+    "index_interval": "5m",
+    "default_ttl": "24h",
+    "poll_interval": "5s",
+    "ignore_patterns": [".git", "node_modules", "__pycache__", "*.tmp"]
+  },
+  "mcp": {
+    "enabled": false,
+    "cache_timeout": "5m",
+    "servers": [
+      {
+        "name": "filesystem",
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"],
+        "auto_connect": false
+      },
+      {
+        "name": "external-api",
+        "transport": "http",
+        "base_url": "http://localhost:3000",
+        "auto_connect": false
+      }
+    ]
+  },
+  "tailscale": {
+    "enabled": true,
+    "require_auth": true,
+    "allowed_tags": ["tag:aoi-agent", "tag:aoi-admin"],
+    "fallback_mode": "development",
+    "auto_register_agents": true,
+    "bind_to_tailscale": false,
+    "tag_mappings": [
+      {
+        "tag": "tag:aoi-admin",
+        "resources": ["*"],
+        "permission": "admin"
+      },
+      {
+        "tag": "tag:aoi-agent",
+        "resources": ["agents/*", "queries/*", "tasks/*"],
+        "permission": "write"
+      },
+      {
+        "tag": "tag:aoi-reader",
+        "resources": ["agents/*", "queries/*"],
+        "permission": "read"
+      }
+    ]
+  }
+}

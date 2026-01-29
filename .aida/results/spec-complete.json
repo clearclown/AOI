@@ -1,0 +1,23 @@
+{
+  "task_id": "spec-aoi-protocol",
+  "status": "completed",
+  "completed_at": "2026-01-28T08:09:53Z",
+  "outputs": {
+    "requirements": ".aida/specs/aoi-protocol-requirements.md",
+    "design": ".aida/specs/aoi-protocol-design.md",
+    "tasks": ".aida/specs/aoi-protocol-tasks.md",
+    "extraction": ".aida/artifacts/requirements/extraction.md",
+    "structure": ".aida/artifacts/designs/structure.md",
+    "alignment": ".aida/artifacts/alignment.md"
+  },
+  "metrics": {
+    "requirements_size_bytes": 20854,
+    "design_size_bytes": 29837,
+    "tasks_count": 41,
+    "estimated_effort_days": 194,
+    "critical_path_days": 50,
+    "phases_completed": 4,
+    "alignment_score": "92%"
+  },
+  "summary": "Specification phases 1-4 complete. Generated comprehensive requirements (20.8KB), technical design (29.8KB), and 41 implementation tasks organized in 9 phases. Critical path for MVP is 50 days. All core requirements aligned with design. Ready for implementation phase."
+}

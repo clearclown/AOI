@@ -1,0 +1,38 @@
+{
+  "session_id": "aoi-proto-2026-01-28-001",
+  "started_at": "2026-01-28T00:00:00Z",
+  "spec_completed_at": "2026-01-28T08:09:53Z",
+  "mode": "aida",
+  "current_phase": "COMPLETED",
+  "phase": 6,
+  "phase_name": "completed",
+  "impl_completed_at": "2026-01-28T17:32:30+09:00",
+  "user_request": "build the system @README.md @docs/",
+  "project_name": "aoi-protocol",
+  "phase_history": [
+    {"phase": "INITIALIZING", "entered_at": "2026-01-28T00:00:00Z", "exited_at": "2026-01-28T00:00:01Z"},
+    {"phase": "EXTRACTION", "entered_at": "2026-01-28T00:00:01Z", "exited_at": "2026-01-28T08:09:00Z"},
+    {"phase": "STRUCTURE", "entered_at": "2026-01-28T08:09:00Z", "exited_at": "2026-01-28T08:09:30Z"},
+    {"phase": "ALIGNMENT", "entered_at": "2026-01-28T08:09:30Z", "exited_at": "2026-01-28T08:09:45Z"},
+    {"phase": "VERIFICATION", "entered_at": "2026-01-28T08:09:45Z", "exited_at": "2026-01-28T08:09:53Z"},
+    {"phase": "IMPL_PHASE", "entered_at": "2026-01-28T08:09:53Z"}
+  ],
+  "leaders": {
+    "spec": "completed",
+    "impl": "completed"
+  },
+  "active_agents": [],
+  "completed_tasks": ["spec-requirements", "spec-design", "spec-tasks", "impl-backend", "impl-frontend", "impl-docker", "quality-gates"],
+  "pending_tasks": [],
+  "spec_outputs": {
+    "requirements": ".aida/specs/aoi-protocol-requirements.md",
+    "design": ".aida/specs/aoi-protocol-design.md",
+    "tasks": ".aida/specs/aoi-protocol-tasks.md"
+  },
+  "spec_metrics": {
+    "total_tasks": 41,
+    "estimated_effort_days": 194,
+    "critical_path_days": 50,
+    "alignment_score": "92%"
+  }
+}

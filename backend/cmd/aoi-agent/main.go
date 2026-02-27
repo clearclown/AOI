@@ -15,6 +15,7 @@ import (
 	"github.com/aoi-protocol/aoi/internal/acl"
 	"github.com/aoi-protocol/aoi/internal/config"
 	aoicontext "github.com/aoi-protocol/aoi/internal/context"
+	"github.com/aoi-protocol/aoi/internal/h2a"
 	agentidentity "github.com/aoi-protocol/aoi/internal/identity"
 	"github.com/aoi-protocol/aoi/internal/mcp"
 	"github.com/aoi-protocol/aoi/internal/notify"
@@ -198,8 +199,16 @@ func main() {
 		}
 	}
 
+	// Initialize H2A manager
+	h2aMgr := h2a.NewH2AManager()
+	if cfg.H2A.Enabled {
+		log.Printf("H2A: enabled (pm_users=%v, stream_interval=%dms)",
+			cfg.H2A.PMUsers, cfg.H2A.StreamIntervalMs)
+		h2aMgr.SetPMUsers(cfg.H2A.PMUsers)
+	}
+
 	// Create protocol server with JSON-RPC support
-	server := protocol.NewServerWithContext(registry, aclMgr, contextAPI, mcpBridge)
+	server := protocol.NewServerFull(registry, aclMgr, contextAPI, mcpBridge, h2aMgr)
 
 	// Create HTTP mux for handlers
 	mux := http.NewServeMux()

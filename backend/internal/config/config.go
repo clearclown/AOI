@@ -14,6 +14,7 @@ type Config struct {
 	Context   ContextConfig   `json:"context"`
 	MCP       MCPConfig       `json:"mcp"`
 	Tailscale TailscaleConfig `json:"tailscale"`
+	H2A       H2AConfig       `json:"h2a"`
 }
 
 // AgentConfig contains agent identity configuration
@@ -90,6 +91,18 @@ type TailscaleConfig struct {
 	TagMappings []TagMappingConfig `json:"tag_mappings,omitempty"`
 }
 
+// H2AConfig contains configuration for Human-to-Agent interactions.
+type H2AConfig struct {
+	// Enabled turns the H2A feature on/off.
+	Enabled bool `json:"enabled"`
+	// PMUsers lists the user IDs that have PM-level permission (can send to any agent).
+	PMUsers []string `json:"pm_users"`
+	// DefaultCaptureLines is how many pane lines to capture in aoi.h2a.send responses.
+	DefaultCaptureLines int `json:"default_capture_lines"`
+	// StreamIntervalMs is the default polling interval for aoi.h2a.stream (milliseconds).
+	StreamIntervalMs int `json:"stream_interval_ms"`
+}
+
 // TagMappingConfig represents a mapping from Tailscale tag to AOI permission
 type TagMappingConfig struct {
 	Tag        string   `json:"tag"`
@@ -147,6 +160,12 @@ func LoadDefault() *Config {
 			AutoRegisterAgents: true,
 			BindToTailscale:    false,
 			TagMappings:        []TagMappingConfig{},
+		},
+		H2A: H2AConfig{
+			Enabled:             true,
+			PMUsers:             []string{},
+			DefaultCaptureLines: 50,
+			StreamIntervalMs:    500,
 		},
 	}
 }

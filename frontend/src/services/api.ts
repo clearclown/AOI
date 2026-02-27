@@ -107,6 +107,20 @@ export interface AuditStats {
   failureCount: number;
 }
 
+// H2A types
+export interface H2ASession {
+  agent_id: string;
+  session_name: string;
+  pane_name?: string;
+  registered_at: string;
+}
+
+export interface H2ASendResult {
+  status: string;
+  output?: string;
+  stream_id?: string;
+}
+
 class AOIClient {
   private baseUrl: string;
   private requestId = 0;
@@ -218,6 +232,37 @@ class AOIClient {
 
   async getAuditStats(): Promise<AuditStats> {
     return this.rpc<AuditStats>('aoi.audit.stats');
+  }
+
+  // H2A API methods
+  async h2aRegisterSession(agentId: string, sessionName: string, paneName?: string): Promise<{ status: string; agent_id: string }> {
+    return this.rpc('aoi.h2a.register', { agent_id: agentId, session_name: sessionName, pane_name: paneName ?? '' });
+  }
+
+  async h2aListSessions(): Promise<{ sessions: H2ASession[]; count: number }> {
+    return this.rpc('aoi.h2a.sessions', {});
+  }
+
+  async h2aSend(targetAgentId: string, fromUser: string, command: string, captureOutput = true): Promise<H2ASendResult> {
+    return this.rpc<H2ASendResult>('aoi.h2a.send', {
+      target_agent_id: targetAgentId,
+      from_user: fromUser,
+      command,
+      capture_output: captureOutput,
+    });
+  }
+
+  async h2aStream(targetAgentId: string, fromUser: string, command: string, intervalMs = 500): Promise<{ status: string; stream_id: string; topic: string }> {
+    return this.rpc('aoi.h2a.stream', {
+      target_agent_id: targetAgentId,
+      from_user: fromUser,
+      command,
+      interval_ms: intervalMs,
+    });
+  }
+
+  async h2aStop(streamId: string): Promise<{ status: string }> {
+    return this.rpc('aoi.h2a.stop', { stream_id: streamId });
   }
 }
 

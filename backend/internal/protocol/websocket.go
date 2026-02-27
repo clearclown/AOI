@@ -38,6 +38,8 @@ const (
 	MessageTypeSubscribe       = "subscribe"
 	MessageTypeUnsubscribe     = "unsubscribe"
 	MessageTypeError           = "error"
+	// H2A: Human-to-Agent output streaming
+	MessageTypeH2AOutput = "h2a_output"
 )
 
 // WSMessage represents a WebSocket message
@@ -79,6 +81,14 @@ type ApprovalRequestPayload struct {
 // SubscribePayload represents a subscription request
 type SubscribePayload struct {
 	Topics []string `json:"topics"`
+}
+
+// H2AOutputPayload is the WebSocket payload for Human-to-Agent output streaming.
+type H2AOutputPayload struct {
+	StreamID   string `json:"stream_id"`
+	AgentID    string `json:"agent_id"`
+	Output     string `json:"output"`
+	IsComplete bool   `json:"is_complete"`
 }
 
 var upgrader = websocket.Upgrader{

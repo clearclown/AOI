@@ -12,6 +12,7 @@ import (
 	"github.com/aoi-protocol/aoi/internal/approval"
 	"github.com/aoi-protocol/aoi/internal/audit"
 	aoicontext "github.com/aoi-protocol/aoi/internal/context"
+	"github.com/aoi-protocol/aoi/internal/h2a"
 	"github.com/aoi-protocol/aoi/internal/identity"
 	"github.com/aoi-protocol/aoi/internal/mcp"
 	"github.com/aoi-protocol/aoi/internal/notify"
@@ -62,6 +63,7 @@ type Server struct {
 	mcpBridge   *mcp.MCPBridge
 	approvalMgr *approval.ApprovalManager
 	auditLogger *audit.AuditLogger
+	h2aMgr      *h2a.H2AManager
 }
 
 // NewServer creates a new HTTP server
@@ -76,14 +78,25 @@ func NewServerWithNotify(registry *identity.AgentRegistry, aclMgr *acl.AclManage
 
 // NewServerWithContext creates a new HTTP server with context and MCP support
 func NewServerWithContext(registry *identity.AgentRegistry, aclMgr *acl.AclManager, contextAPI *aoicontext.ContextAPI, mcpBridge *mcp.MCPBridge) *Server {
+	return NewServerFull(registry, aclMgr, contextAPI, mcpBridge, nil)
+}
+
+// NewServerFull creates a fully configured HTTP server including H2A support.
+func NewServerFull(registry *identity.AgentRegistry, aclMgr *acl.AclManager, contextAPI *aoicontext.ContextAPI, mcpBridge *mcp.MCPBridge, h2aMgr *h2a.H2AManager) *Server {
 	if registry == nil {
 		registry = identity.NewAgentRegistry()
 	}
 	if aclMgr == nil {
 		aclMgr = acl.NewAclManager()
 	}
+	if h2aMgr == nil {
+		h2aMgr = h2a.NewH2AManager()
+	}
 
 	wsHub := NewWSHub(nil)
+
+	// Wire up the WebSocket hub to the H2A manager for output broadcasting.
+	h2aMgr.SetWSHub(wsHub)
 
 	s := &Server{
 		registry:    registry,
@@ -94,6 +107,7 @@ func NewServerWithContext(registry *identity.AgentRegistry, aclMgr *acl.AclManag
 		mcpBridge:   mcpBridge,
 		approvalMgr: approval.NewApprovalManager(),
 		auditLogger: audit.NewAuditLogger(),
+		h2aMgr:      h2aMgr,
 	}
 
 	s.setupRoutes()
@@ -216,6 +230,8 @@ func (s *Server) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		s.handleApprovalRPC(w, &req)
 	case strings.HasPrefix(req.Method, "aoi.audit"):
 		s.handleAuditRPC(w, &req)
+	case strings.HasPrefix(req.Method, "aoi.h2a"):
+		s.handleH2ARPC(w, &req)
 	default:
 		s.sendJSONRPCError(w, req.ID, JSONRPCMethodNotFound, "Method not found", req.Method)
 	}
@@ -418,6 +434,143 @@ func (s *Server) sendJSONRPCError(w http.ResponseWriter, id interface{}, code in
 
 	w.WriteHeader(http.StatusOK) // JSON-RPC errors are still HTTP 200
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleH2ARPC routes aoi.h2a.* JSON-RPC methods.
+func (s *Server) handleH2ARPC(w http.ResponseWriter, req *JSONRPCRequest) {
+	switch req.Method {
+	case "aoi.h2a.register":
+		s.handleH2ARegister(w, req)
+	case "aoi.h2a.sessions":
+		s.handleH2ASessions(w, req)
+	case "aoi.h2a.send":
+		s.handleH2ASend(w, req)
+	case "aoi.h2a.stream":
+		s.handleH2AStream(w, req)
+	case "aoi.h2a.stop":
+		s.handleH2AStop(w, req)
+	default:
+		s.sendJSONRPCError(w, req.ID, JSONRPCMethodNotFound, "Method not found", req.Method)
+	}
+}
+
+// handleH2ARegister implements aoi.h2a.register — links an agent ID to a tmux session.
+func (s *Server) handleH2ARegister(w http.ResponseWriter, req *JSONRPCRequest) {
+	var params struct {
+		AgentID     string `json:"agent_id"`
+		SessionName string `json:"session_name"`
+		PaneName    string `json:"pane_name,omitempty"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInvalidParams, "Invalid params", err.Error())
+		return
+	}
+	if err := s.h2aMgr.RegisterSession(params.AgentID, params.SessionName, params.PaneName); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInvalidParams, err.Error(), nil)
+		return
+	}
+	s.sendJSONRPCSuccess(w, req.ID, map[string]interface{}{
+		"status":   "registered",
+		"agent_id": params.AgentID,
+	})
+}
+
+// handleH2ASessions implements aoi.h2a.sessions — returns all registered tmux sessions.
+func (s *Server) handleH2ASessions(w http.ResponseWriter, req *JSONRPCRequest) {
+	sessions := s.h2aMgr.ListSessions()
+	s.sendJSONRPCSuccess(w, req.ID, map[string]interface{}{
+		"sessions": sessions,
+		"count":    len(sessions),
+	})
+}
+
+// handleH2ASend implements aoi.h2a.send — sends a command and optionally returns captured output.
+func (s *Server) handleH2ASend(w http.ResponseWriter, req *JSONRPCRequest) {
+	var params struct {
+		TargetAgentID string `json:"target_agent_id"`
+		FromUser      string `json:"from_user"`
+		Command       string `json:"command"`
+		CaptureOutput bool   `json:"capture_output"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInvalidParams, "Invalid params", err.Error())
+		return
+	}
+
+	// ACL check: can from_user send to target?
+	if !s.h2aMgr.CanSendTo(params.FromUser, params.TargetAgentID) {
+		s.sendJSONRPCError(w, req.ID, JSONRPCACLDenied,
+			fmt.Sprintf("user '%s' is not allowed to send to agent '%s'", params.FromUser, params.TargetAgentID),
+			nil)
+		return
+	}
+
+	result, err := s.h2aMgr.SendCommand(params.TargetAgentID, params.Command, params.CaptureOutput)
+	if err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInternalError, err.Error(), nil)
+		return
+	}
+
+	log.Printf("[H2A] %s -> %s: %q", params.FromUser, params.TargetAgentID, params.Command)
+	s.sendJSONRPCSuccess(w, req.ID, result)
+}
+
+// handleH2AStream implements aoi.h2a.stream — sends a command and begins output streaming via WebSocket.
+func (s *Server) handleH2AStream(w http.ResponseWriter, req *JSONRPCRequest) {
+	var params struct {
+		TargetAgentID string `json:"target_agent_id"`
+		FromUser      string `json:"from_user"`
+		Command       string `json:"command"`
+		IntervalMs    int    `json:"interval_ms,omitempty"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInvalidParams, "Invalid params", err.Error())
+		return
+	}
+
+	// ACL check
+	if !s.h2aMgr.CanSendTo(params.FromUser, params.TargetAgentID) {
+		s.sendJSONRPCError(w, req.ID, JSONRPCACLDenied,
+			fmt.Sprintf("user '%s' is not allowed to send to agent '%s'", params.FromUser, params.TargetAgentID),
+			nil)
+		return
+	}
+
+	// Send command first
+	if _, err := s.h2aMgr.SendCommand(params.TargetAgentID, params.Command, false); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInternalError, err.Error(), nil)
+		return
+	}
+
+	// Start streaming output via WebSocket
+	streamID, err := s.h2aMgr.StartStream(params.TargetAgentID, params.IntervalMs)
+	if err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInternalError, err.Error(), nil)
+		return
+	}
+
+	log.Printf("[H2A] stream %s: %s -> %s: %q", streamID, params.FromUser, params.TargetAgentID, params.Command)
+	s.sendJSONRPCSuccess(w, req.ID, map[string]interface{}{
+		"status":    "streaming",
+		"stream_id": streamID,
+		"topic":     "h2a:" + params.TargetAgentID,
+	})
+}
+
+// handleH2AStop implements aoi.h2a.stop — cancels an active stream.
+func (s *Server) handleH2AStop(w http.ResponseWriter, req *JSONRPCRequest) {
+	var params struct {
+		StreamID string `json:"stream_id"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInvalidParams, "Invalid params", err.Error())
+		return
+	}
+	if err := s.h2aMgr.StopStream(params.StreamID); err != nil {
+		s.sendJSONRPCError(w, req.ID, JSONRPCInternalError, err.Error(), nil)
+		return
+	}
+	s.sendJSONRPCSuccess(w, req.ID, map[string]string{"status": "stopped"})
 }
 
 // GetWSHub returns the WebSocket hub for external use

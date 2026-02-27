@@ -11,6 +11,8 @@ export const WS_MESSAGE_TYPES = {
   SUBSCRIBE: 'subscribe',
   UNSUBSCRIBE: 'unsubscribe',
   ERROR: 'error',
+  // H2A: Human-to-Agent output streaming
+  H2A_OUTPUT: 'h2a_output',
 } as const;
 
 export type WSMessageType = typeof WS_MESSAGE_TYPES[keyof typeof WS_MESSAGE_TYPES];
@@ -58,6 +60,13 @@ export interface ApprovalRequestPayload {
 
 export interface SubscribePayload {
   topics: string[];
+}
+
+export interface H2AOutputPayload {
+  stream_id: string;
+  agent_id: string;
+  output: string;
+  is_complete: boolean;
 }
 
 export type MessageHandler<T = unknown> = (message: WSMessage<T>) => void;

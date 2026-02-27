@@ -698,3 +698,183 @@ func TestJSONRPC_GETMethodNotAllowed(t *testing.T) {
 		t.Errorf("Expected error code %d, got %d", JSONRPCInvalidRequest, resp.Error.Code)
 	}
 }
+
+// ─── H2A JSON-RPC Tests ────────────────────────────────────────────────────
+
+func makeH2AServer() *Server {
+	return NewServerFull(nil, nil, nil, nil, nil)
+}
+
+func rpcRequest(method string, params interface{}) *bytes.Buffer {
+	p, _ := json.Marshal(params)
+	body, _ := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  method,
+		"params":  json.RawMessage(p), // embed directly so params is an object, not a string
+		"id":      1,
+	})
+	return bytes.NewBuffer(body)
+}
+
+func decodeRPC(t *testing.T, w *httptest.ResponseRecorder) JSONRPCResponse {
+	t.Helper()
+	var resp JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return resp
+}
+
+func TestH2A_RegisterSession(t *testing.T) {
+	server := makeH2AServer()
+
+	body := rpcRequest("aoi.h2a.register", map[string]string{
+		"agent_id":     "eng-suzuki",
+		"session_name": "claude-eng",
+	})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error != nil {
+		t.Fatalf("unexpected RPC error: %+v", resp.Error)
+	}
+}
+
+func TestH2A_ListSessions_Empty(t *testing.T) {
+	server := makeH2AServer()
+
+	body := rpcRequest("aoi.h2a.sessions", map[string]string{})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error != nil {
+		t.Fatalf("unexpected RPC error: %+v", resp.Error)
+	}
+}
+
+func TestH2A_Send_ACLDenied(t *testing.T) {
+	server := makeH2AServer()
+
+	// Register a session so we get past the "no session" check
+	_ = server.h2aMgr.RegisterSession("eng-yamada", "sess-yamada", "")
+
+	body := rpcRequest("aoi.h2a.send", map[string]interface{}{
+		"target_agent_id": "eng-yamada",
+		"from_user":       "eng-suzuki", // non-PM, not self
+		"command":         "ls",
+		"capture_output":  false,
+	})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error == nil {
+		t.Fatal("expected ACL denied error")
+	}
+	if resp.Error.Code != JSONRPCACLDenied {
+		t.Errorf("expected code %d, got %d", JSONRPCACLDenied, resp.Error.Code)
+	}
+}
+
+func TestH2A_Send_NoSession(t *testing.T) {
+	server := makeH2AServer()
+	server.h2aMgr.SetPMUsers([]string{"pm-tanaka"})
+
+	body := rpcRequest("aoi.h2a.send", map[string]interface{}{
+		"target_agent_id": "eng-nobody",
+		"from_user":       "pm-tanaka",
+		"command":         "ls",
+		"capture_output":  false,
+	})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error == nil {
+		t.Fatal("expected error for unregistered agent")
+	}
+	if resp.Error.Code != JSONRPCInternalError {
+		t.Errorf("expected code %d, got %d", JSONRPCInternalError, resp.Error.Code)
+	}
+}
+
+func TestH2A_Send_SelfAllowed(t *testing.T) {
+	server := makeH2AServer()
+	_ = server.h2aMgr.RegisterSession("eng-suzuki", "sess-suzuki", "")
+
+	body := rpcRequest("aoi.h2a.send", map[string]interface{}{
+		"target_agent_id": "eng-suzuki",
+		"from_user":       "eng-suzuki", // engineer sending to self — allowed
+		"command":         "echo hello",
+		"capture_output":  false,
+	})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	// Will error at tmux level (no real tmux in test), but ACL should pass
+	if resp.Error != nil && resp.Error.Code == JSONRPCACLDenied {
+		t.Errorf("ACL should not deny self-send, got: %+v", resp.Error)
+	}
+}
+
+func TestH2A_UnknownMethod(t *testing.T) {
+	server := makeH2AServer()
+
+	body := rpcRequest("aoi.h2a.unknown", map[string]string{})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error == nil {
+		t.Fatal("expected method-not-found error")
+	}
+	if resp.Error.Code != JSONRPCMethodNotFound {
+		t.Errorf("expected code %d, got %d", JSONRPCMethodNotFound, resp.Error.Code)
+	}
+}
+
+func TestH2A_Stop_NotFound(t *testing.T) {
+	server := makeH2AServer()
+
+	body := rpcRequest("aoi.h2a.stop", map[string]string{"stream_id": "nonexistent"})
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error == nil {
+		t.Fatal("expected error for unknown stream")
+	}
+}
+
+func TestH2A_InvalidParams(t *testing.T) {
+	server := makeH2AServer()
+
+	// Send raw invalid JSON as params
+	body := bytes.NewBufferString(`{"jsonrpc":"2.0","method":"aoi.h2a.send","params":"NOT_AN_OBJECT","id":1}`)
+	req := httptest.NewRequest("POST", "/api/v1/rpc", body)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.handleJSONRPC(w, req)
+
+	resp := decodeRPC(t, w)
+	if resp.Error == nil {
+		t.Fatal("expected error for invalid params")
+	}
+}

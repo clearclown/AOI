@@ -49,3 +49,6 @@ console.error = (...args: unknown[]) => {
 }
 
 vi.stubGlobal('WebSocket', MockWebSocket)
+
+// jsdom does not implement scrollIntoView; add a no-op stub
+window.HTMLElement.prototype.scrollIntoView = vi.fn()

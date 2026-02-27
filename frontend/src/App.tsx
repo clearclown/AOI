@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Dashboard from './components/Dashboard/Dashboard'
 import AuditLog from './components/AuditLog/AuditLog'
 import ApprovalUI from './components/ApprovalUI/ApprovalUI'
+import TalkToAgent from './components/TalkToAgent/TalkToAgent'
 import { useAgents } from './hooks/useAgents'
 import { useAuditLog } from './hooks/useAuditLog'
 import { apiClient } from './services/api'
@@ -25,7 +26,7 @@ interface AuditEntryLocal {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'audit' | 'approvals'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'audit' | 'approvals' | 'talk'>('dashboard')
   const [isConnected, setIsConnected] = useState<boolean | null>(null)
   const approvalRequests: never[] = []
 
@@ -108,7 +109,8 @@ function App() {
       <nav style={{ marginBottom: '20px' }}>
         <button onClick={() => setActiveTab('dashboard')} style={{ marginRight: '10px' }}>Dashboard</button>
         <button onClick={() => setActiveTab('audit')} style={{ marginRight: '10px' }}>Audit Log</button>
-        <button onClick={() => setActiveTab('approvals')}>Approvals</button>
+        <button onClick={() => setActiveTab('approvals')} style={{ marginRight: '10px' }}>Approvals</button>
+        <button onClick={() => setActiveTab('talk')} style={{ fontWeight: activeTab === 'talk' ? 'bold' : 'normal' }}>🗣 Talk to Agent</button>
       </nav>
 
       {activeTab === 'dashboard' && <Dashboard agents={agents} />}
@@ -120,6 +122,7 @@ function App() {
           onDeny={handleDeny}
         />
       )}
+      {activeTab === 'talk' && <TalkToAgent currentUserId="user" />}
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { AuditEntry } from '../types';
+import { apiClient } from '../services/api';
+import type { AuditEntry as APIAuditEntry } from '../services/api';
 import { useWebSocket, WS_MESSAGE_TYPES, type WSMessage, type AuditEntryPayload } from './useWebSocket';
 
 interface UseAuditLogOptions {
@@ -34,10 +36,17 @@ export function useAuditLog(options: UseAuditLogOptions = {}): UseAuditLogReturn
   const fetchAuditLog = useCallback(async () => {
     try {
       setError(null);
-      // TODO: Replace with actual API call when backend endpoint is available
-      // const data = await apiClient.getAuditLog();
-      // For now, keep empty array as API is not yet implemented
-      setEntries([]);
+      const data = await apiClient.getRecentAuditEntries(maxEntries);
+      const mapped: AuditEntry[] = data.map((e: APIAuditEntry) => ({
+        id: e.id,
+        from: e.fromAgent,
+        to: e.toAgent,
+        eventType: e.eventType as AuditEntry['eventType'],
+        summary: e.summary,
+        timestamp: e.timestamp,
+        metadata: e.details as Record<string, string> | undefined,
+      }));
+      setEntries(mapped);
       setLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch audit log';
@@ -45,7 +54,7 @@ export function useAuditLog(options: UseAuditLogOptions = {}): UseAuditLogReturn
       setLoading(false);
       setConnectionStatus('error');
     }
-  }, []);
+  }, [maxEntries]);
 
   // Handle WebSocket audit entry updates
   const handleAuditEntry = useCallback((message: WSMessage<AuditEntryPayload>) => {

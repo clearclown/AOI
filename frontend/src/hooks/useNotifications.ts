@@ -33,15 +33,9 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   });
 
   const fetchNotifications = useCallback(async () => {
-    try {
-      // TODO: Replace with actual API call when backend endpoint is available
-      // const data = await apiClient.getNotifications();
-      // For now, keep empty array as API is not yet implemented
-      setNotifications([]);
-    } catch (err) {
-      console.error('Failed to fetch notifications:', err);
-      setConnectionStatus('error');
-    }
+    // Notifications are push-based (WebSocket only). No polling endpoint exists.
+    // This callback is kept for the polling interval setup but is a no-op;
+    // new notifications arrive via the WebSocket handler below.
   }, []);
 
   // Handle WebSocket notification updates

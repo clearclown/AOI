@@ -1,0 +1,41 @@
+{
+  "agent": {
+    "id": "eng-local-01",
+    "role": "engineer",
+    "owner": "local-dev"
+  },
+  "network": {
+    "listen_addr": "0.0.0.0:8080",
+    "tls_enabled": false
+  },
+  "acl": {
+    "rules": [
+      {
+        "agent_id": "*",
+        "resource": "/api/*",
+        "permission": "admin"
+      }
+    ]
+  },
+  "context": {
+    "watch_paths": [],
+    "index_interval": "5m",
+    "default_ttl": "24h",
+    "poll_interval": "5s",
+    "ignore_patterns": [".git", "node_modules", "__pycache__", "*.tmp"]
+  },
+  "mcp": {
+    "enabled": false,
+    "cache_timeout": "5m",
+    "servers": []
+  },
+  "tailscale": {
+    "enabled": false,
+    "require_auth": false,
+    "allowed_tags": [],
+    "fallback_mode": "development",
+    "auto_register_agents": false,
+    "bind_to_tailscale": false,
+    "tag_mappings": []
+  }
+}

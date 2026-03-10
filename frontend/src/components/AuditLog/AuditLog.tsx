@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { apiClient, AuditEntry as APIAuditEntry, AuditEventType, AuditStats } from '../../services/api'
+import { apiClient } from '../../services/api'
+import type { AuditEntry as APIAuditEntry, AuditEventType, AuditStats } from '../../services/api'
 
 export interface AuditEntry {
   id: string

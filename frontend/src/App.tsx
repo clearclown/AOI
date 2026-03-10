@@ -28,7 +28,6 @@ interface AuditEntryLocal {
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'audit' | 'approvals' | 'talk'>('dashboard')
   const [isConnected, setIsConnected] = useState<boolean | null>(null)
-  const approvalRequests: never[] = []
 
   // Fetch data from API with fallback to mock data
   const { agents: apiAgents, error: agentsError } = useAgents()
@@ -76,15 +75,6 @@ function App() {
     ? apiEntries.map(e => ({ id: e.id, timestamp: e.timestamp, fromAgent: e.from, toAgent: e.to, eventType: e.eventType, summary: e.summary }))
     : mockAuditEntries
 
-  const handleApprove = (id: string) => {
-    console.log('Approved:', id)
-    // TODO: Call API when backend endpoint is available
-  }
-
-  const handleDeny = (id: string) => {
-    console.log('Denied:', id)
-    // TODO: Call API when backend endpoint is available
-  }
 
   return (
     <div style={{ padding: '20px', fontFamily: 'system-ui' }}>
@@ -116,11 +106,7 @@ function App() {
       {activeTab === 'dashboard' && <Dashboard agents={agents} />}
       {activeTab === 'audit' && <AuditLog entries={auditEntries} />}
       {activeTab === 'approvals' && (
-        <ApprovalUI
-          requests={approvalRequests}
-          onApprove={handleApprove}
-          onDeny={handleDeny}
-        />
+        <ApprovalUI />
       )}
       {activeTab === 'talk' && <TalkToAgent currentUserId="user" />}
     </div>

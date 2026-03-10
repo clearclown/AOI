@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 interface JSONRPCRequest {
   jsonrpc: '2.0';
@@ -223,7 +223,7 @@ class AOIClient {
   }
 
   async searchAuditEntries(params: AuditQueryParams): Promise<AuditQueryResult> {
-    return this.rpc<AuditQueryResult>('aoi.audit.search', params);
+    return this.rpc<AuditQueryResult>('aoi.audit.search', params as Record<string, unknown>);
   }
 
   async getRecentAuditEntries(count: number = 50): Promise<AuditEntry[]> {

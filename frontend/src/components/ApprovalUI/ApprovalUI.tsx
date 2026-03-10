@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { apiClient, ApprovalRequest as APIApprovalRequest, ApprovalStatus } from '../../services/api'
+import { apiClient } from '../../services/api'
+import type { ApprovalRequest as APIApprovalRequest, ApprovalStatus } from '../../services/api'
 
 export interface ApprovalRequest {
   id: string

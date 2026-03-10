@@ -1,5 +1,17 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
 import App from './App'
+
+vi.mock('./services/api', () => ({
+  apiClient: {
+    getHealth: vi.fn().mockRejectedValue(new Error('No backend')),
+    discoverAgents: vi.fn().mockResolvedValue([]),
+    getRecentAuditEntries: vi.fn().mockResolvedValue([]),
+    listApprovalRequests: vi.fn().mockResolvedValue([]),
+    approveRequest: vi.fn().mockResolvedValue({}),
+    denyRequest: vi.fn().mockResolvedValue({}),
+  }
+}))
 
 describe('App Component', () => {
   describe('Initial Render', () => {
@@ -42,11 +54,13 @@ describe('App Component', () => {
       expect(screen.getByRole('heading', { name: /audit log/i })).toBeInTheDocument()
     })
 
-    test('clicking approvals tab shows approvals', () => {
+    test('clicking approvals tab shows approvals', async () => {
       render(<App />)
       const approvalsButton = screen.getByRole('button', { name: /approvals/i })
       fireEvent.click(approvalsButton)
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
 
     test('clicking dashboard tab shows dashboard', () => {
@@ -56,7 +70,7 @@ describe('App Component', () => {
       expect(screen.getByRole('heading', { name: /agent dashboard/i })).toBeInTheDocument()
     })
 
-    test('navigation between tabs works correctly', () => {
+    test('navigation between tabs works correctly', async () => {
       render(<App />)
 
       const auditButton = screen.getByRole('button', { name: /audit/i })
@@ -65,7 +79,9 @@ describe('App Component', () => {
 
       const approvalsButton = screen.getByRole('button', { name: /approvals/i })
       fireEvent.click(approvalsButton)
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
 
       const dashboardButton = screen.getByRole('button', { name: /dashboard/i })
       fireEvent.click(dashboardButton)
@@ -163,20 +179,24 @@ describe('App Component', () => {
   })
 
   describe('Approvals Tab Content', () => {
-    test('approvals shows empty state with no requests', () => {
+    test('approvals shows empty state with no requests', async () => {
       render(<App />)
       const approvalsButton = screen.getByRole('button', { name: /approvals/i })
       fireEvent.click(approvalsButton)
 
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
 
-    test('approvals tab is accessible', () => {
+    test('approvals tab is accessible', async () => {
       render(<App />)
       const approvalsButton = screen.getByRole('button', { name: /approvals/i })
       fireEvent.click(approvalsButton)
 
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
   })
 
@@ -221,12 +241,14 @@ describe('App Component', () => {
       expect(screen.getByText('pm-tanaka')).toBeInTheDocument()
     })
 
-    test('approval component receives empty array', () => {
+    test('approval component fetches from API and shows empty state', async () => {
       render(<App />)
       const approvalsButton = screen.getByRole('button', { name: /approvals/i })
       fireEvent.click(approvalsButton)
 
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
   })
 
@@ -258,10 +280,12 @@ describe('App Component', () => {
       expect(screen.getByText('eng-suzuki')).toBeInTheDocument()
     })
 
-    test('has no approval requests by default', () => {
+    test('has no approval requests by default', async () => {
       render(<App />)
       fireEvent.click(screen.getByRole('button', { name: /approvals/i }))
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
   })
 
@@ -312,15 +336,19 @@ describe('App Component', () => {
       expect(screen.getByText('pm-tanaka')).toBeInTheDocument()
     })
 
-    test('approvals tab retains state when switching back', () => {
+    test('approvals tab retains state when switching back', async () => {
       render(<App />)
       fireEvent.click(screen.getByRole('button', { name: /approvals/i }))
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
 
       fireEvent.click(screen.getByRole('button', { name: /dashboard/i }))
       fireEvent.click(screen.getByRole('button', { name: /approvals/i }))
 
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
   })
 
@@ -329,7 +357,7 @@ describe('App Component', () => {
       expect(() => render(<App />)).not.toThrow()
     })
 
-    test('handles rapid tab switching', () => {
+    test('handles rapid tab switching', async () => {
       render(<App />)
       const dashboardBtn = screen.getByRole('button', { name: /dashboard/i })
       const auditBtn = screen.getByRole('button', { name: /audit/i })
@@ -341,7 +369,9 @@ describe('App Component', () => {
       fireEvent.click(auditBtn)
       fireEvent.click(approvalsBtn)
 
-      expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument()
+      })
     })
 
     test('all navigation buttons are clickable', () => {
